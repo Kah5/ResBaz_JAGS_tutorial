@@ -1,0 +1,288 @@
+---
+title: "Introduction to Bayesian Statistics in R"
+author: "Kelly Heilman"
+date: "5/12/2020"
+output: html_document
+---
+
+### Overview 
+We will cover the very basics of Bayesian Statistics, and go over an example of how to specify your first bayesian linear regression in R!
+
+### Prerequisites:
+If you want to follow along with the code you need to:
+- install JAGS itself http://mcmc-jags.sourceforge.net/
+- have R/Rstudio installed
+- have the "rjags", "coda", and "ggplot2" libraries installed 
+- download our dataset at:
+
+
+### Objectives
+We will cover the very basics of Bayesian Statistics, and go over an example of how to specify your first bayesian linear regression in R!
+
+We will go over some further resources and things to watch out for when working in the bayes frame of mind. 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(rjags)
+library(coda)
+library(ggplot2)
+
+```
+
+### What are the advantages of Bayesian analysis?
+  - Treats all parameters as random variables, including our data!
+      - rather than assuming our data and covariates are the single tree estimate, we acknowlege that these values come from a distribution that represents the True (with a capital T) value of the process we are interested in.
+  - Estimation and parsing uncertainty
+      - bayesian predictive intervals can include different sources of uncertainty: unexplained process error, parameter uncertainty, data uncertainty, and driver uncertainty
+      
+  - lends itself to heiarchical and different process models 
+      - borrow strength across different groups or treatments
+      - can specify appropriate distributions, and different process models, including state-space models, logistic functions, etc. 
+
+
+### Bayes Theorum
+We won't discuss this section too much, as I want to focus on implemetation in R
+
+### Multiple ways to run Bayesian models in R
+  a.	JAGS
+  b.	BUGS/WINBUGS
+  c.	STAN
+  d.	NIMBLE
+
+### A simple Linear regression example
+We will start off thinking about a simple linear regression approach, where we are estimating the slope and intercept of the relationship between two variables in a sample relationship. You might use `lm()` to fit this model using maximum likelihood, frequentist approach. We will use the cars dataset loaded into R.
+
+Frequetist approaches based on maximum likelhood methods.
+
+
+```{r }
+# I am a big GGPLOT fan, so sorry base R plotters...
+ggplot(cars, aes(dist, speed))+geom_point()+theme_bw(base_size = 12) + ylab("Distance")+xlab("Speed")
+
+
+# do a basic linear regression using "lm"
+
+speed.dist.lm <- lm(speed ~ dist, data = cars)
+lm.results <- summary(speed.dist.lm)
+
+summary(speed.dist.lm)
+
+ggplot(cars, aes(dist, speed))+geom_point()+theme_bw(base_size = 12) + ylab("Distance")+xlab("Speed")+geom_abline(intercept = lm.results$coefficients[1,1], slope = lm.results$coefficients[2,1], color = "red")
+
+```
+
+### A simple linear regression in JAGS
+
+I mentioned that in Bayesian models, all variables are treated as random, that means that all variables are/can be estimated within the model. In our linear regression, this includes our dependant variable, y. 
+
+Why might this be useful?
+  - Well y is a measurement taken by me, an imperfect human being. 
+  - We typically can't directly measure the "TRUE" process or value that we are interested in. 
+
+
+##### The Linear Regression Model
+
+#### Data Model
+$$y_{i}~\sim normal(\mu, \sigma^2)$$
+
+#### Process Model 
+We specify the linear regression withe slope $\beta$, intercept $\alpha$ and our independent variable $x$
+
+$$mu = \beta*x + \alpha$$
+
+While we are specifying a very simple model, the process model could be any model that you can write out (logistic growth, muliple linear regression, state-space model etc)
+
+
+### Priors:
+In Bayes models you specify distributions that you want to sample the parameters from. We wont go into detail on how to select priors in this short workshop, but keep in mind that prior selection is quite important. The benefit of Bayesian modelling is that you can choose "uninformative priors" or "informative priors". 
+
+#### Uninformative priors:
+
+Specify a very broad distribution over which to sample for our parameter, and basically state that we have no prior knowledge of what value our parameter should be, besides the distribution shape. 
+
+#### Informative priors:
+
+Specify that we have *some* prior knowledge of what value the parameter should be. 
+Why might this be useful?
+
+Well, alot of science does not exist in a vacuum, and we likely already have some prior knowledge of what we expect. For example, this might be useful if we have already done a study where we quantified the relationship between y and x, and we know that the value of beta should fall within XX-XX. 
+
+This may not be appear to be super useful in a basic linear regression, it can also be useful in much more complex models, where multiple parameters could trade off. 
+
+In this model we will specify uninformative priors for our prarameters, which assume that the true value of beta is sampled from a normal distribution with mean of 0 and variance of 1000. We also specify a prior for $\sigma^2$
+
+$$\beta \sim normal(0, 0.001)$$
+$$\alpha \sim normal(0, 0.001)$$
+$$\sigma^2 \sim invgamma(0.01, 0.01$$
+
+Note that variances must be non-negative, hence we cannot use a normal prior as a distribution
+
+## JAGS (Just Another Gibbs Sampler)
+We will use JAGS ('Just Another Gibbs Sampler') to run this particular bayesian model. JAGS is designed to run Bayesian models using Markoc Chain Monte Carlo simulations (MCMC). JAGS is just one option among many for bayesian analysis. We can call and run jags from R utilizing the 'rjags' library. Note that there are other R libraries that can help with this including 'R2jags'. 
+
+
+
+## Defining our JAGS model
+To specify a JAGS model, you must define all the random distributions
+
+```{r}
+asimple_linear_regression <- "model{
+
+  # Likelihood
+  for(i in 1:n){
+    y[i]   ~ dnorm(mu[i],inv.var) # data model 
+    mu[i] <- alpha + beta*xvals[i]  # process model for the linear regression
+  }
+
+ # Priors
+  beta ~ dnorm(0,0.0001)
+  alpha ~ dnorm(0,0.0001)
+
+  
+  inv.var   ~ dgamma(0.01, 0.01) # Prior for the inverse variance
+  sigma     <- 1/sqrt(inv.var) # note that in JAGS the second argument of the normal distribution is 1/sigma^2, or the precision Tau
+
+}"
+```
+
+
+
+### Formatting the data + inital values for each chain
+Jags expects all data to in a list.
+```{r}
+car.data <- list(xvals = cars$dist, y = cars$speed, n = length(cars$speed))
+```
+
+### Initialize the model
+Initializing the model using jags.model. Note that you can (and probably should generate intial values, but here we let jags do the default).
+This step sets up the JAGS model, loads the data, and specifies all paramets and priors.
+```{r}
+jags.model   <- jags.model (file = textConnection(asimple_linear_regression),
+                             data = car.data,
+                             #inits = inits,
+                             n.chains = 3)
+```
+
+
+### Running MCMC chains 
+JAGS can run mulitple MCMC chains, ideally with random starting values. This is a good idea beacuse it ensures that our model "converges" on the same parameter space consistently. Many times people run at least 3 chains.
+
+The funciton "coda.samples" runs the MCMC chains of our model for a specified number of MCMC iteraations (specified by 'n.iter'), and is set up to 'trace' or output all parameters/variables of interest specified by variable.names. Often models are run for a high number of iterations, so 5000 MCMC samples is quite small, but we will use it for this tutorial. 
+
+```{r}
+jags.reg.out   <- coda.samples (model = jags.model,
+                            variable.names = c("alpha","beta", "inv.var"),
+                                n.iter = 5000)
+
+summary(jags.reg.out)
+```
+
+### Assessing Model output 
+coda.samples gives us a `mcmc.list` 
+
+```{r}
+class(jags.reg.out)
+summary(jags.reg.out)
+traceplot(jags.reg.out)
+```
+
+### Have our chains converged?
+We need to make sure that our random samples are converging to the same parameter space. Tools to do this include:
+ -traceplots
+ -GBR statistics (ideally < 1.01)
+ -remove "burn-in"
+ 
+ 
+```{r}
+traceplot(jags.reg.out)
+gelman.diag(jags.reg.out)
+```
+
+### Check for Autocorrelation
+# Many people thin their chains by taking only the "ith" MCMC iteration 
+```{r}
+acfplot(jags.reg.out)
+```
+### Lets plot up our parameter estimates + uncertainty
+
+# plot the credible intervals around the regression line, which are analogous to the uncertainty/error provided in a frequentist regression 
+```{r}
+head(jags.reg.out)
+
+jags.mat <- as.matrix(jags.reg.out) 
+
+xpred <- min(cars$dist): max(cars$dist)
+plot(cars$dist, cars$speed)
+cred.lines <- list()
+
+# loop through to get the lines
+for(i in 1000:2000){
+ cred.lines[[i]]<-  data.frame(MCMC.step = i,
+   xpreds = xpred, 
+                              ypreds = jags.mat[i,"alpha"] + jags.mat[i,"beta"]*xpred)
+}
+
+cred.intervals <- do.call(rbind, cred.lines)
+
+
+ggplot(cars, aes(dist, speed))+geom_point()+theme_bw(base_size = 12) + ylab("Distance")+xlab("Speed")+geom_line(data = cred.intervals, aes(x =xpreds, y = ypreds, group = MCMC.step), color = "grey", alpha = 0.5)
+
+
+```
+
+# Lets also simulate the credible intervals and predictive intervals from random pairs of samples of the mcmc output
+```{r}
+
+nsamp <- 2500
+mcmcsamples <- sample(nrow(jags.mat),nsamp)
+xpred <- min(cars$dist): max(cars$dist) 	
+ypred <- matrix(0.0,nrow=nsamp,ncol=npred)	
+ycred <- matrix(0.0,nrow=nsamp,ncol=npred)	
+```
+
+Next we'll set up a loop where we'll calculate the expected value of y at each x for each pair of regression parameters and then add additional random error from the data model. 
+
+```{r}
+
+
+for(i in 1:2500){
+  params <-  jags.mat[mcmcsamples[i],]
+  ycred[i,] <- params["alpha"] + params["beta"]*xpred # same as above
+  ypred[i,] <- rnorm(n = npred, mean = ycred[i,], sd = 1/sqrt(params["inv.var"])) #draw from normal distribution with our estimated uncertainty!
+}
+
+
+#combine the  ci, pi, and xpreds into a dataframe ot plot in ggplot2
+
+ci.and.pi <- data.frame(xvals = xpred, 
+                       ci.med = apply(ycred, 2, quantile, 0.5),
+                       ci.lo= apply(ycred, 2, quantile, 0.025),
+                       ci.hi= apply(ycred, 2, quantile, 0.975),
+                       pi.med= apply(ypred, 2, quantile, 0.5),
+                       pi.lo= apply(ypred, 2, quantile, 0.025),
+                       pi.hi=apply(ypred, 2, quantile, 0.975))  
+
+# now make a pretty plot with all the ci and pis on it!
+
+ggplot()+geom_point(data = cars, aes(dist, speed))+theme_bw(base_size = 12) +  ylab("Distance")+xlab("Speed")+geom_ribbon(data = ci.and.pi, aes(x = xvals, ymin = pi.lo, ymax = pi.hi), fill = "blue", alpha = 0.6)+geom_ribbon(data = ci.and.pi, aes(x = xvals, ymin = ci.lo, ymax = ci.hi), fill = "grey", alpha = 0.6)
+
+```
+
+
+### More Resources on Bayesian modelling
+There are alot of great resources on the background of bayesian statistics and heiarchical models, including textbooks and examples of code. My background is in ecology, so much of my suggestions might be biased. 
+ - Doing Bayesian Data Analysis Book
+ - 
+
+### More resources on Bayes-R
+There are alot of different ways to implement Bayesian models in R, each have their advantages, disadvantages, and vary in how intuitive they may be to a beginnner. Below is a list of differnt programs with links for more information
+
+-	JAGS
+-	BUGS/WINBUGS
+- STAN
+- NIMBLE
+
+### More complex models:
+
+The real benefit to going bayes comes (in my opinion) as you start adding complexity to your model structure, particularly if your dataset of interest has heiarchical structure. 
+
+
