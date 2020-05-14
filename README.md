@@ -6,3 +6,4 @@ If you want to run the code yourself, please make sure you have JAGS installed, 
 
 Instructions for installing JAGS are here: http://mcmc-jags.sourceforge.net/
 
+During the workshop, feel free to follow along and run the code using the R markdown file.
