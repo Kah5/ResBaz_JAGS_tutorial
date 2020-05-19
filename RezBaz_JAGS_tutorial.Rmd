@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ### Overview 
-We will cover the very basics of Bayesian Statistics, and go over an example of how to specify your first bayesian linear regression in R!
+In this workshop, we will cover the very basics of Bayesian Statistics, and go over an example of how to specify your first bayesian linear regression in R using JAGS!
 
 ### Prerequisites:
 If you want to follow along with the code you need to:
@@ -20,6 +20,7 @@ If you want to follow along with the code you need to:
 We will cover the very basics of Bayesian Statistics, and go over an example of how to specify your first bayesian linear regression in R!
 
 We will go over some further resources and things to watch out for when working in the bayes frame of mind. 
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(rjags)
@@ -263,15 +264,170 @@ ci.and.pi <- data.frame(xvals = xpred,
 
 # now make a pretty plot with all the ci and pis on it!
 
-ggplot()+geom_point(data = cars, aes(dist, speed))+theme_bw(base_size = 12) +  ylab("Distance")+xlab("Speed")+geom_ribbon(data = ci.and.pi, aes(x = xvals, ymin = pi.lo, ymax = pi.hi), fill = "blue", alpha = 0.6)+geom_ribbon(data = ci.and.pi, aes(x = xvals, ymin = ci.lo, ymax = ci.hi), fill = "grey", alpha = 0.6)
+ggplot()+geom_point(data = cars, aes(dist, speed))+theme_bw(base_size = 12) +  ylab("Speed")+xlab("Distance")+geom_ribbon(data = ci.and.pi, aes(x = xvals, ymin = pi.lo, ymax = pi.hi), fill = "blue", alpha = 0.6)+geom_ribbon(data = ci.and.pi, aes(x = xvals, ymin = ci.lo, ymax = ci.hi), fill = "grey", alpha = 0.6)
 
 ```
+
+#--------------------- Breakout group Discussion ------------------------------
+
+In your groups, discuss:
+1. What do the credible intervals represent? 
+2. What aspects of uncertainty do you think the credible intervals represent?
+3. what aspects of uncertainty do the bayesian predictive intervals represent?
+
+#------------------------------------------------------------------------------
+
+# Uncertainty:
+1. parameter uncertainty (credible intervals, the 95% CI around $\beta$ and $\alpha$)
+2. process uncertainty (sigma)
+3. driver/data uncertainty (What if we had multiple measurements of our dependant variable?)
+
+#----------------------------Including Data Uncertainty-------------------------
+Lets say that our variable "Speed" was measured by taking 3 different radar measurements, each slighly different. How do we know what the "true" speed is?
+
+Open question for the group: How would you typically deal with this?
+
+- average all 3 and use that the "speed" in the model
+- include all 3, but have an observer/radar random effect
+- ? some other way
+
+What if we could include this uncertainty in our model, in a way that propogates forward to the estimates of distance?
+
+We can!
+
+
+# Adding Random effects:
+Now, one can imagine that different drivers might driver different distances at a given speed, leading to different intercepts (and possibly different slopes) for each driver. We will add simulate different intercepts for multiple drivers, to demonstrate how you can add random effects within the JAGS bayesian framework.
+
+```{r}
+# driver 1
+driver1 <- data.frame(speed = cars$speed + rnorm(50, 10, 2), 
+                      dist = cars$dist + rnorm(50, 0, 0.2), 
+                      driver = 1)
+# driver 2
+driver2 <- data.frame(speed = cars$speed + rnorm(50, -7, 2), 
+                      dist = cars$dist + rnorm(50, 0, 0.2), 
+                      driver = 2)
+# driver 3
+
+driver3 <- data.frame(speed = cars$speed , 
+                      dist = cars$dist , 
+                      driver = 3)
+
+cars.driver <- rbind(driver1, driver2, driver3)
+cars.driver$driver <- as.character(cars.driver$driver)
+
+
+ggplot()+geom_point(data = cars.driver, aes(dist, speed, color = driver))+theme_bw(base_size = 12) +  ylab("Speed")+xlab("Distance")
+
+ggplot(data = cars.driver, aes(dist, speed, color = driver))+geom_point()+stat_smooth(method = "lm")+theme_bw(base_size = 12) +  ylab("Speed")+xlab("Distance")
+```
+
+# How to specify a randome intercept in JAGS:
+# to do this, we will modify the alpha term
+
+```{r}
+a_linear_regression_random_intercept <- "model{
+
+  # Likelihood
+  for(i in 1:n){
+    y[i]   ~ dnorm(mu[i],inv.var) # data model 
+    mu[i] <- alpha[driver[i]] + beta*xvals[i]  # process model for the linear regression
+  }
+
+for (i in 1:ndriver) {
+    alpha[i] ~ dnorm(mu_alpha, tau_alpha) # Specify random intercepts for each of the drivers, drawn from a distribution of mean  = mu_alpha and precision tau_alpha
+}
+
+
+ # Priors
+  beta ~ dnorm(0,0.0001)
+  inv.var   ~ dgamma(0.01, 0.01) # Prior for the inverse variance
+  sigma     <- 1/sqrt(inv.var) # note that in JAGS the second argument of the normal distribution is 1/sigma^2, or the precision Tau
+  
+  
+# hyperparameters/priors:
+
+ mu_alpha ~ dnorm(0, 0.0001) # hyperparameter mean random alpha
+ 
+ 
+ 
+ #sigma_alpha~dunif(0, 100) # SD hyperparameter for random intercepts
+ tau_alpha ~ dgamma(0.01, 0.01) # convert sigma_alpha to a precision (what jags expects for a normal distribution)
+
+
+}"
+```
+
+# lets run this model:
+
+```{r}
+
+# we need to specify the data for jags, and include the number of drivers (ndriver), as well as the driver 
+cardriver.data <- list(xvals = cars.driver$dist, 
+                       y = cars.driver$speed,  
+                       driver = cars.driver$driver, 
+                       n = length(cars.driver$speed), 
+                       ndriver = length(unique(cars.driver$driver)))
+```
+
+### Initialize the model
+Initializing the model using jags.model. Note that you can (and probably should generate intial values, but here we let jags do the default).
+This step sets up the JAGS model, loads the data, and specifies all paramets and priors.
+
+```{r}
+jags.int.model   <- jags.model (file = textConnection(a_linear_regression_random_intercept),
+                             data = cardriver.data,
+                             #inits = inits,
+                             n.chains = 3)
+```
+```{r}
+
+
+jags.int.out   <- coda.samples (model = jags.int.model,
+                            variable.names = c("alpha","beta", "inv.var", "tau_alpha", "mu_alpha"),
+                                n.iter = 5000)
+
+summary(jags.int.out)
+traceplot(jags.int.out)
+
+
+```
+```{r}
+head(jags.int.out)
+
+jags.int.mat<- as.matrix(jags.int.out) 
+
+xpred <- min(cars.driver$dist): max(cars.driver$dist)
+plot(cars.driver$dist, cars.driver$speed)
+cred.lines <- list()
+
+# loop through to get the lines
+for(i in 1000:2000){
+ cred.lines[[i]]<-  data.frame(MCMC.step = i,
+                              xpreds = xpred, 
+                              ypreds.driver1 = jags.int.mat[i,"alpha[1]"] + jags.int.mat[i,"beta"]*xpred,
+ ypreds.driver2 = jags.int.mat[i,"alpha[2]"] + jags.int.mat[i,"beta"]*xpred,
+ ypreds.driver3 = jags.int.mat[i,"alpha[3]"] + jags.int.mat[i,"beta"]*xpred)
+}
+
+cred.intervals <- do.call(rbind, cred.lines)
+cred.intervals.m <- reshape2::melt(cred.intervals, id.vars = c("MCMC.step", "xpreds"))
+
+ggplot(cars.driver, aes(dist, speed, color = driver))+geom_point()+theme_bw(base_size = 12) + ylab("Distance")+xlab("Speed")+geom_line(data = cred.intervals.m, aes(x =xpreds, y = value,  group = MCMC.step, color = variable), alpha = 0.5)+facet_wrap(~variable)
+```
+### More complex models:
+
+The real benefit to going bayes comes (in my opinion) as you start adding complexity to your model structure, particularly if your dataset of interest has heiarchical structure. This allows you parse some of that additive process error into parameter error, random effects, and fixed effects. 
+
+We could keep heiarchically adding complexity, if that is what our system/problem needed. In our example, perhaps Distance vs Speed relationship varied by driver, but also by the car model. Depending on the data stucture, we might add an additional randome effect for the car. But, if all drivers tested out all the cars we could have a nested randome effect, where $\mu_{alpha}$ was drawn from a distribution of with mean $\mu_{car}$ and precision $\tau_{car}$. However, this heiarchical structure should be based in a knowledge of your system and your data. That is why it is best practice to start with a simple model, then build up heiarachical structures, if needed. 
 
 
 ### More Resources on Bayesian modelling
 There are alot of great resources on the background of bayesian statistics and heiarchical models, including textbooks and examples of code. My background is in ecology, so much of my suggestions might be biased. 
  - Doing Bayesian Data Analysis Book
- - 
+ - Bayesian Models Book
+ - Introduction to Applied Bayesian Statistics and Estimation for Social Scientists
 
 ### More resources on Bayes-R
 There are alot of different ways to implement Bayesian models in R, each have their advantages, disadvantages, and vary in how intuitive they may be to a beginnner. Below is a list of differnt programs with links for more information
@@ -281,8 +437,5 @@ There are alot of different ways to implement Bayesian models in R, each have th
 - STAN
 - NIMBLE
 
-### More complex models:
-
-The real benefit to going bayes comes (in my opinion) as you start adding complexity to your model structure, particularly if your dataset of interest has heiarchical structure. 
 
 
