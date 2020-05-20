@@ -53,13 +53,76 @@ So what does this mean in the context of a model?
 
 Lets say we have a regression model with parameters denoted by $\theta$ and data denoted by $X$ we can use bayes theorem to determine the conditional probability of our model parameters, given the data $P(\theta|X)$, also called the *posterior*. 
 
-The posterior is equal to the 
+$$P(\theta|X) = {P(X|\theta)*P(\theta)}/{P(X)}$$
+
+The posterior is equal to the the liklihood $P(X|\theta)$ (you might recognize this from frequentist/maximum liklihood methods) times the prior probability of the model parameters $P(\theta)$ 
+
+Because the marginal probability $P(X)$ is the probability of X, determined by the integral of the joint probability $P(X,\theta)$ over all possible states of \theta, we can rewrite this as:
+
+$$P(\theta|X) = \frac{P(X|\theta)*P(\theta)}{\int P(X|\theta)*P(\theta)}$$
+Note that now the denominator serves to normalize the function. 
+
+## Sun exploding example 
+# (Example From Ecological Forecasting Dietze, inspired by XKCD):
+https://xkcd.com/1132/
+
+
+A neutrino detector tells us whether the sun has exploded or not, but has a 1/36 chance of lying to us about the sun going nova.
+Our data (X) says Yes, the sun has gone nova. X = Yes, and we have two hypotheses ($\theta_{1}$ and $\theta_{2}$)
+$\theta_{1}$ = nova sun
+$\theta_{2}$ = no nova, 
+
+So lets derive 2 liklihoods:
+$P(X = yes|\theta_{1} = nova) = 35/36$ # the probability that a yes from the detector is not a lie
+
+$P(X = yes|\theta_{1} = not nova) = 1/36$ # the probability that a yes from the detector is actually a lie
+
+So to estimate the poseterior probabilities of the sun exploding $\theta_{1}$ = nova, given our the neutrino detector telling us "yes" $X = Yes$:
+$$P(\theta_{1} = nova|X= YES) = \frac{P(X = YES|\theta_{1} = nova)*P(\theta_{1}= nova)}{P(X = YES|\theta_{1}= nova)*P(\theta_{1}= nova)+ P(X = YES|\theta_{2}= not nova)*P(\theta_{2}= not nova)}$$
+
+Lets assume that $P(\theta_{1}) = 1/10000$, or a low chance of the sun actually going nova, we can calculate the posterior probability of the sun going nova!
+
+You can test out a few different priors  to see how our prior belief that the sun has actullay exploded affects our posterior estimates. 
+```{r}
+likelihood.theta1 = 35/36 # probability of detector giving a yes, given the sun has actually exploded
+likelihood.theta2 = 1/36 # probability of a detector giving a yes, when the sun has not exploded
+
+prior_theta1 = 1/10000 # prior belief that the sun has gone nova
+prior_theta2 = 1- prior_theta1
+
+# plug in values for bayes theorem:
+posterior = (likelihood.theta1*prior_theta1)/((likelihood.theta1*prior_theta1)+(likelihood.theta2*prior_theta2))
+
+# convert to a percentange & round
+print (paste("Bayesian: There is a ", posterior*100, "% chance the sun just went nova!"))
+
+```
+Note that if we have a stronger prior belief that the sun exploded, then the prior has a stronger influence on the posterior. 
+
+In many (perhaps most) cases, practitioners will keep priors "non-informative," and rely mostly on the data. However, there might be some good reasons to use "informative" or strong priors in some cases. For example, if you have previous research or a posterior from a previous analsis that strongly suggests a high probability of the sun going nova. Or a meta analysis that gives some prior information about what the values of certain model parameters should be. The key here is to not double dip--you can't use your data from the analysis to inform the prior.
+
+### Using Bayes theorem to estimate model parameters:
+Lets say we have a normal Gaussian liklihood with a mean = $\mu$ SD = $\sigma$, and that we observed a value of X = 15. We could use bayes theorem to determine the posetior probability of our parameter of interest $\mu$, given our data X = 15: 
+
+The posterior probability of $\mu$ given the data X = 15 is porportional to the likelihood (probability of the data, given the model) multipled by the prior probability of mu.We drop the normalizing constant, so the formula is not proporational to. 
+
+Assume that our prior probability of $\mu$ is represented by a normal distribution with a mean of $\mu_{0}$ and variance $\tau$. Subistituting these distributions gives us the posterior. If you were to analytically solve this (substituting the analytical form of the normal distribution), you would see that that this results in a normal distribution for our posterior, with a posterior mean = a weighted average of the data (X), and the prior mean (\mu_{0}), and a posterior precision (1/\sigma^2) is the sum of the prior precision and the data precision. 
+
+
+$$P(\mu|X)  \propto  P(X|\mu)*P(\mu) = Normal(X|\mu, \sigma)*Normal(\mu|mu_{0}, \tau)$$
+TLDR: The posterior mean is a weighted average of the prior and data, while posterior precision = sum of data precision and prior precision. 
+
+Question for thought:
+-What does this mean for the precision or uncertainty in the posterior?
 
 
 
+### Monte Carlo Methods:
+In the two examples with bayes theorem above, we used examples where you could theoretically express the posterior using a commonly used distribution (normal). However, in more complex models, this is not always (not often) the case. However, we can rely on Monte Carlo Methods to approximate...
 
+Numerical methods that allow for approximation of any probability distriubtion using random samples from that distribution, even if you can't write out the analytical form of that distribution. We won't get too much into the weeds about this here, as I want to focus on implemetation in R. 
 
-We won't discuss this section too much, as I want to focus on implemetation in R
+Just know that here we will use Markov Chain Monte Carlo methods to randomly sample our posterior parameter distributions. JAGS is one program that uses MCMC methods, but there are several. 
 
 ### Multiple ways to run Bayesian models in R
   a.	JAGS
@@ -70,7 +133,7 @@ We won't discuss this section too much, as I want to focus on implemetation in R
 ### A simple Linear regression example
 We will start off thinking about a simple linear regression approach, where we are estimating the slope and intercept of the relationship between two variables in a sample relationship. You might use `lm()` to fit this model using maximum likelihood, frequentist approach. We will use the cars dataset loaded into R.
 
-Frequetist approaches based on maximum likelhood methods.
+Frequetist approaches often based on maximum likelhood methods, that is maximizing the probability of the data given the specified model parameters.
 
 
 ```{r }
