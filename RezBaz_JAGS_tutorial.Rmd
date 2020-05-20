@@ -31,7 +31,7 @@ library(ggplot2)
 
 ### What are the advantages of Bayesian analysis?
   - Treats all parameters as random variables, including our data!
-      - rather than assuming our data and covariates are the single tree estimate, we acknowlege that these values come from a distribution that represents the True (with a capital T) value of the process we are interested in.
+      - rather than assuming our data and covariates are the single *true* estimate, we acknowlege that these values come from a distribution that represents the True (with a capital T) value of the process we are interested in.
   - Estimation and parsing uncertainty
       - bayesian predictive intervals can include different sources of uncertainty: unexplained process error, parameter uncertainty, data uncertainty, and driver uncertainty
       
@@ -40,7 +40,25 @@ library(ggplot2)
       - can specify appropriate distributions, and different process models, including state-space models, logistic functions, etc. 
 
 
-### Bayes Theorum
+### Bayes Theorem
+Bayes theorem is the basis for bayesian analyses. It states that the conditional probability of A, given B is given by the Probabiliity of B given A, multiplied by Probability of A, and normalized by the Probability of B
+
+$P(A|B) = {P(B|A)*P(A)}/{P(B)}$
+
+Likelihood: P(B|A) 
+Prior probabilty of A
+Marginalize by the Probability of B
+
+So what does this mean in the context of a model?
+
+Lets say we have a regression model with parameters denoted by $\theta$ and data denoted by $X$ we can use bayes theorem to determine the conditional probability of our model parameters, given the data $P(\theta|X)$, also called the *posterior*. 
+
+The posterior is equal to the 
+
+
+
+
+
 We won't discuss this section too much, as I want to focus on implemetation in R
 
 ### Multiple ways to run Bayesian models in R
@@ -277,23 +295,100 @@ In your groups, discuss:
 
 #------------------------------------------------------------------------------
 
-# Uncertainty:
+## Uncertainty:
 1. parameter uncertainty (credible intervals, the 95% CI around $\beta$ and $\alpha$)
 2. process uncertainty (sigma)
 3. driver/data uncertainty (What if we had multiple measurements of our dependant variable?)
+
+
+### To simulate some observations from the cars dataset
+Jags expects all data to in a list.
+```{r}
+speeds1 <- speeds2 <- speeds3 <- matrix(NA, nrow = length(cars$speed), ncol = 1)
+for(i in 1:length(cars$speed)){
+speeds1 [i]<- rnorm(1, cars[i,]$speed, sd = 1)
+speeds2 [i]<- rnorm(1, cars[i,]$speed, sd = 1)
+speeds3 [i]<- rnorm(1, cars[i,]$speed, sd = 1)
+}
+cars.mult.measure <- data.frame(dist = rep(cars$dist, 3), 
+                                speed = c(speeds1, speeds2, speeds3 ), 
+                                observer = rep(1:3, each = length(cars$speed)))
+
+
+car.obs.data <- list(xvals = cars.mult.measure$dist, y = cars.mult.measure$speed, obs = cars.mult.measure$observer, n = length(cars.mult.measure$speed))
+```
+
+
 
 #----------------------------Including Data Uncertainty-------------------------
 Lets say that our variable "Speed" was measured by taking 3 different radar measurements, each slighly different. How do we know what the "true" speed is?
 
 Open question for the group: How would you typically deal with this?
 
-- average all 3 and use that the "speed" in the model
-- include all 3, but have an observer/radar random effect
-- ? some other way
 
 What if we could include this uncertainty in our model, in a way that propogates forward to the estimates of distance?
 
 We can!
+
+One way to do this is to add a data model for speed:
+Lets say we took multiple measurements of speed for several distances, and determined that our speed estimates have a SD = 2.5. 
+
+We can use this measurement to estimate the "true speed" in our model:
+$$truespeed_{i} \sim Normal(mean = speed_{i}, precison = tau_{speed})$$
+Since we already have some prior knowledge of what the precision on our speed estimates should be, we can include an informative prior:
+
+$$tau_{speed} \sim gamma(10, 0.5)$$
+
+```{r}
+a_linear_regression_driver_unc <- "model{
+
+  # Likelihood
+  for(i in 1:n){
+    
+    
+   true_speed[i] ~ dnorm(xvals[i], tau_speed) # data model for speed measurements
+    
+    y[i]   ~ dnorm(mu[i],inv.var) # data model for distance (y variable)
+    mu[i] <- alpha + beta*true_speed[i]  # process model for the linear regression
+  }
+
+ # Priors
+  beta ~ dnorm(0,0.0001)
+  alpha ~ dnorm(0,0.0001)
+
+  
+  inv.var   ~ dgamma(0.01, 0.01) # Prior for the inverse variance
+  sigma     <- 1/sqrt(inv.var) # note that in JAGS the second argument of the normal distribution is 1/sigma^2, or the precision Tau
+  
+  # prior for speed precsion
+  tau_speed   ~ dgamma(10, 0.5) 
+
+}"
+```
+
+
+```{r}
+car.data <- list(xvals = cars$dist, y = cars$speed, n = length(cars$speed))
+```
+
+### Initialize the model
+Initializing the model using jags.model. Note that you can (and probably should generate intial values, but here we let jags do the default).
+This step sets up the JAGS model, loads the data, and specifies all paramets and priors.
+```{r}
+jags.model.drive   <- jags.model (file = textConnection(a_linear_regression_driver_unc ),
+                             data = car.data,
+                             #inits = inits,
+                             n.chains = 3)
+jags.drive.unc.out   <- coda.samples (model = jags.model.drive,
+                            variable.names = c("alpha","beta", "inv.var", "tau_speed" ),
+                                n.iter = 5000)
+
+summary(jags.drive.unc.out)
+traceplot(jags.drive.unc.out)
+
+
+```
+
 
 
 # Adding Random effects:
@@ -381,6 +476,9 @@ jags.int.model   <- jags.model (file = textConnection(a_linear_regression_random
                              #inits = inits,
                              n.chains = 3)
 ```
+
+
+
 ```{r}
 
 
@@ -393,10 +491,13 @@ traceplot(jags.int.out)
 
 
 ```
+
+
+
 ```{r}
 head(jags.int.out)
 
-jags.int.mat<- as.matrix(jags.int.out) 
+jags.int.mat <- as.matrix(jags.int.out) 
 
 xpred <- min(cars.driver$dist): max(cars.driver$dist)
 plot(cars.driver$dist, cars.driver$speed)
@@ -416,11 +517,17 @@ cred.intervals.m <- reshape2::melt(cred.intervals, id.vars = c("MCMC.step", "xpr
 
 ggplot(cars.driver, aes(dist, speed, color = driver))+geom_point()+theme_bw(base_size = 12) + ylab("Distance")+xlab("Speed")+geom_line(data = cred.intervals.m, aes(x =xpreds, y = value,  group = MCMC.step, color = variable), alpha = 0.5)+facet_wrap(~variable)
 ```
+
 ### More complex models:
 
 The real benefit to going bayes comes (in my opinion) as you start adding complexity to your model structure, particularly if your dataset of interest has heiarchical structure. This allows you parse some of that additive process error into parameter error, random effects, and fixed effects. 
 
 We could keep heiarchically adding complexity, if that is what our system/problem needed. In our example, perhaps Distance vs Speed relationship varied by driver, but also by the car model. Depending on the data stucture, we might add an additional randome effect for the car. But, if all drivers tested out all the cars we could have a nested randome effect, where $\mu_{alpha}$ was drawn from a distribution of with mean $\mu_{car}$ and precision $\tau_{car}$. However, this heiarchical structure should be based in a knowledge of your system and your data. That is why it is best practice to start with a simple model, then build up heiarachical structures, if needed. 
+
+# ----------------------On your own-----------------------------
+### Random slopes + intercepts:
+Try adding to our random effects model to include both random slopes and intercepts. 
+
 
 
 ### More Resources on Bayesian modelling
@@ -429,7 +536,7 @@ There are alot of great resources on the background of bayesian statistics and h
  - Bayesian Models Book
  - Introduction to Applied Bayesian Statistics and Estimation for Social Scientists
 
-### More resources on Bayes-R
+### More resources on Bayesian modelling in R
 There are alot of different ways to implement Bayesian models in R, each have their advantages, disadvantages, and vary in how intuitive they may be to a beginnner. Below is a list of differnt programs with links for more information
 
 -	JAGS
