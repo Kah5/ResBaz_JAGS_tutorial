@@ -128,7 +128,7 @@ You can test out a few different priors (change prior_theta1 in th code below) t
 likelihood.theta1 = 35/36 # probability of detector giving a yes, given the sun has actually exploded
 likelihood.theta2 = 1/36 # probability of a detector giving a yes, when the sun has not exploded
 
-prior_theta1 = 1/10000 # prior belief that the sun has gone nova
+prior_theta1 = 1/1000 # prior belief that the sun has gone nova
 prior_theta2 = 1- prior_theta1
 
 # plug in values for bayes theorem:
@@ -212,7 +212,7 @@ Why might this be useful?
 $$y_{i}~\sim normal(\mu, \sigma^2)$$
 
 #### Process Model 
-We specify the linear regression withe slope $\beta$, intercept $\alpha$ and our independent variable $x$
+We specify the linear regression with slope $\beta$, intercept $\alpha$ and our independent variable $x$
 
 $$mu = \beta*x + \alpha$$
 
@@ -257,6 +257,7 @@ asimple_linear_regression <- "model{
 
   # Likelihood
   for(i in 1:n){
+  
     # data model 
     y[i]   ~ dnorm(mu[i], tau) 
     
@@ -330,7 +331,7 @@ traceplot(jags.reg.out)
 gelman.diag(jags.reg.out)
 ```
 ### apply a burn in period:
-Note that in the above traceplots, the first few samples have not quite converged, so we often run the model for a "burn in" period to remove these mcmc samples and only work with the samples that have converged. You can do it when we specify the  model, or you can just remove these after the fact. We are removing them after the fact in the code below
+Note that in the above traceplots, the first few samples have not quite converged, so we often run the model for a "burn in" period to remove these mcmc samples and only work with the samples that have converged. You can do it when we specify the model, or you can just remove these after the fact. We are removing them after the fact in the code below
 
 
 ### Check for Autocorrelation
@@ -417,7 +418,7 @@ ggplot()+geom_point(data = cars, aes(dist, speed))+theme_bw(base_size = 12) +
 #### In your groups, discuss:
   1. What do the credible intervals represent? 
   2. What aspects of uncertainty do you think the credible intervals include?
-  3. what aspects of uncertainty do the bayesian predictive intervals include?
+  3. what aspects of uncertainty do the posterior predictive intervals include?
 
 
 
