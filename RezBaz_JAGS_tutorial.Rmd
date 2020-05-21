@@ -258,7 +258,7 @@ asimple_linear_regression <- "model{
   # Likelihood
   for(i in 1:n){
     # data model 
-    y[i]   ~ dnorm(mu[i],tau) 
+    y[i]   ~ dnorm(mu[i], tau) 
     
     # process model for the linear regression
     mu[i] <- alpha + beta*xvals[i]  
@@ -270,7 +270,7 @@ asimple_linear_regression <- "model{
 
   
   tau   ~ dgamma(0.01, 0.01) # Prior for the inverse variance, the precision tau
-  sigma     <- 1/sqrt(inv.var) 
+  sigma     <- 1/sqrt(tau) 
   
   # note that in JAGS the second argument of the normal 
   # distribution is 1/sigma^2, or the precision Tau
@@ -304,7 +304,7 @@ The funciton "coda.samples" runs the MCMC chains of our model for a specified nu
 
 ```{r}
 jags.reg.out   <- coda.samples (model = jags.model,
-                            variable.names = c("alpha","beta", "inv.var"),
+                            variable.names = c("alpha","beta", "tau"),
                                 n.iter = 5000)
 
 summary(jags.reg.out)
@@ -323,12 +323,15 @@ We need to make sure that our random samples are converging to the same paramete
  -GBR statistics (ideally < 1.01)
  -remove "burn-in"
  
- 
+
 ```{r}
 par(mfrow = c(1,3))
 traceplot(jags.reg.out)
 gelman.diag(jags.reg.out)
 ```
+### apply a burn in period:
+Note that in the above traceplots, the first few samples have not quite converged, so we often run the model for a "burn in" period to remove these mcmc samples and only work with the samples that have converged. You can do it when we specify the  model, or you can just remove these after the fact. We are removing them after the fact in the code below
+
 
 ### Check for Autocorrelation
 # Many people thin their chains by taking only the "ith" MCMC iteration 
@@ -340,7 +343,7 @@ acfplot(jags.reg.out)
 # plot the credible intervals around the regression line, which are analogous to the uncertainty/error provided in a frequentist regression 
 ```{r}
 
-head(jags.reg.out)
+#head(jags.reg.out)
 
 jags.mat <- as.matrix(jags.reg.out) 
 
@@ -369,7 +372,7 @@ ggplot(cars, aes(dist, speed))+geom_point()+theme_bw(base_size = 12) +
 # Lets also simulate the credible intervals and predictive intervals from random pairs of samples of the mcmc output
 ```{r}
 npred <-length(min(cars$dist): max(cars$dist))
-nsamp <- 2500
+nsamp <- 1000
 mcmcsamples <- sample(nrow(jags.mat), nsamp)
 xpred <- min(cars$dist): max(cars$dist) 	
 ypred <- matrix(NA ,nrow=nsamp, ncol=npred)	
@@ -381,10 +384,10 @@ Next we'll set up a loop where we'll calculate the expected value of y at each x
 ```{r}
 
 
-for(i in 1:2500){
+for(i in 1:1000){
   params <-  jags.mat[mcmcsamples[i],]
   ycred[i,] <- params["alpha"] + params["beta"]*xpred # same as above
-  ypred[i,] <- rnorm(n = npred, mean = ycred[i,], sd = 1/sqrt(params["inv.var"])) #draw from normal distribution with our estimated uncertainty!
+  ypred[i,] <- rnorm(n = npred, mean = ycred[i,], sd = 1/sqrt(params["tau"])) #draw from normal distribution with our estimated uncertainty!
 }
 
 
@@ -408,15 +411,15 @@ ggplot()+geom_point(data = cars, aes(dist, speed))+theme_bw(base_size = 12) +
 
 ```
 
-#--------------------------------------------------------------------------------
-###Breakout group Discussion
 
-##In your groups, discuss:
+## Breakout group Discussion
+
+#### In your groups, discuss:
   1. What do the credible intervals represent? 
   2. What aspects of uncertainty do you think the credible intervals include?
   3. what aspects of uncertainty do the bayesian predictive intervals include?
 
-#------------------------------------------------------------------------------
+
 
 ## Uncertainty:
 1. parameter uncertainty (credible intervals, the 95% CI around $\beta$ and $\alpha$)
@@ -445,15 +448,16 @@ car.obs.data <- list(xvals = cars.mult.measure$dist,
 
 
 
-#----------------------------Including Data Uncertainty-------------------------
+### Including Data Uncertainty or "Uncertainty in variables" 
+
 Lets say that our variable "Speed" was measured by taking 3 different radar measurements, each slighly different. How do we know what the "true" speed is?
 
-Open question for the group: How would you typically deal with this?
+Open question for the group: How could you typically deal with this?
 
 
 What if we could include this uncertainty in our model, in a way that propogates forward to the estimates of distance?
 
-We can!
+We can (in a few different ways)!
 
 One way to do this is to add a data model for speed:
 Lets say we took multiple measurements of speed for several distances, and determined that our speed estimates have a SD = 2.5. 
@@ -518,7 +522,7 @@ traceplot(jags.drive.unc.out)
 Adding an informative prior is one way to include the data or driver uncertainty in the model. Another might be to explicitly include mulitple measurements/observers in your model.
 
 
-## Adding Random effects to our JAGS model:
+### Adding Random effects to our JAGS model:
 Now, one can imagine that different drivers might driver different distances at a given speed, leading to different intercepts (and possibly different slopes) for each driver. We will add simulate different intercepts for multiple drivers, to demonstrate how you can add random effects within the JAGS bayesian framework.
 
 ```{r}
@@ -553,8 +557,10 @@ a_linear_regression_random_intercept <- "model{
 
   # Likelihood
   for(i in 1:n){
+   # data model for speed measurements
+   true_speed[i] ~ dnorm(xvals[i], tau_speed) 
     y[i]   ~ dnorm(mu[i],inv.var) # data model 
-    mu[i] <- alpha[driver[i]] + beta*xvals[i]  # process model for the linear regression
+    mu[i] <- alpha[driver[i]] + beta*true_speed[i]  # process model for the linear regression
   }
 
 for (i in 1:ndriver) {
@@ -576,7 +582,8 @@ for (i in 1:ndriver) {
  
  #sigma_alpha~dunif(0, 100) # SD hyperparameter for random intercepts
  tau_alpha ~ dgamma(0.01, 0.01) # convert sigma_alpha to a precision (what jags expects for a normal distribution)
-
+# prior for speed precsion
+  tau_speed   ~ dgamma(10, 0.5) 
 
 }"
 ```
@@ -609,7 +616,7 @@ jags.int.out   <- coda.samples (model = jags.int.model,
                             variable.names = c("alpha","beta", "inv.var", "tau_alpha"),
                                 n.iter = 5000)
 
-summary(jags.int.out)
+#summary(jags.int.out)
 traceplot(jags.int.out)
 
 
@@ -618,10 +625,10 @@ traceplot(jags.int.out)
 
 # plot the credible intervals for each 
 ```{r}
-head(jags.int.out)
+#head(jags.int.out)
 
 jags.int.mat <- as.matrix(jags.int.out) 
-
+ jags.int.mat <- jags.int.mat[1000:15000,]#select burn in of 1000
 xpred <- min(cars.driver$dist): max(cars.driver$dist)
 plot(cars.driver$dist, cars.driver$speed)
 cred.lines <- list()
