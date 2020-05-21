@@ -16,6 +16,7 @@ If you want to follow along with the code you need to:
 - install JAGS itself http://mcmc-jags.sourceforge.net/
 - have R/Rstudio installed
 - have the "rjags", "coda", and "ggplot2" libraries installed 
+- clone or download this repository with this Rmd file here: https://github.com/Kah5/ResBaz_JAGS_tutorial.git
 
 
 
@@ -50,18 +51,16 @@ Bayes theorem is the basis for Bayesian analyses, so we should introduce it. It 
 
 $$P(A|B) = \frac{P(B|A)*P(A)}{P(B)}$$
 
-Where $P(B|A)$ is the likelihood function
-Prior probabilty of A
-Marginalize by the Probability of B
+Where $P(B|A)$ is the likelihood function, $P(A)$ is the prior or marginal probabilty of A, $P(B)$ is the marginal probabiility of  B
 
 Now I am assuming you know a bit about probability, but lets review a minute. Lets reveiw using this venn diagram. 
 
-# What is the:
-1. Marginal probability of being in group A = (5/12)
-2. Marginal probability of being in group B = (9/12)
-3. Joint probability of being in A and B = (2/12)
-4. Conditional probability that we are in A, given that we are in B? 2/9
-5. Conditional probaiblity that we are in B, given that we are in A? 2/5
+# Based on the distribution of points in groups A and BWhat is the:
+1. P(A) Marginal probability of being in group A = (5/12)
+2. P(B) Marginal probability of being in group B = (9/12)
+3. P(A, B) Joint probability of being in A and B = (2/12)
+4. P(A|B) Conditional probability that we are in A, given that we are in B? (2/9)
+5. P(B|A) Conditional probaiblity that we are in B, given that we are in A? (2/5)
 
 
 ```{r echo = FALSE, fig.width = 4, fig.height = 2, fig.align='center'}
@@ -98,7 +97,7 @@ Note that now the denominator serves to normalize the function.
 
 ### Sun exploding example 
 
-Example From Ecological Forecasting Dietze, inspired by comic below XKCDhttps://xkcd.com/1132/:
+Example From Ecological Forecasting, by Mike Dietze, inspired by comic below XKCDhttps://xkcd.com/1132/:
 
 
 ```{r fig.width=4, fig.height=5,fig.align='center',echo=FALSE}
@@ -152,6 +151,16 @@ Assume that our prior probability of $\mu$ is represented by a normal distributi
 
 
 $$P(\mu|X)  \propto  P(X|\mu)*P(\mu) = Normal(X|\mu, \sigma)*Normal(\mu|mu_{0}, \tau)$$
+For those who are visual learners:
+```{r}
+
+df.example = data.frame(prior = rnorm(10000, 0, sd = 10), 
+                        likelihood = rnorm(10000, 15, sd = 2), 
+                                           posterior= rnorm(10000, 13, sd = 1.2))
+df.example <- reshape2::melt(df.example)
+ggplot(df.example, aes(value, color = variable, fill = variable))+geom_density(alpha = 0.5)+theme_bw()+geom_vline(aes(xintercept = 15), linetype = "dashed", color = "red")
+```
+
 TLDR: The posterior mean is a weighted average of the prior and data, while posterior precision = sum of data precision and prior precision. 
 
 Question for thought:
@@ -179,9 +188,6 @@ Frequetist approaches often based on maximum likelhood methods, that is maximizi
 
 
 ```{r, collapse=TRUE }
-# I am a big GGPLOT fan, so sorry base R plotters...
-ggplot(cars, aes(dist, speed))+geom_point()+theme_bw(base_size = 12) + ylab("Distance")+xlab("Speed")
-
 
 # do a basic linear regression using "lm"
 
@@ -190,6 +196,7 @@ lm.results <- summary(speed.dist.lm)
 
 summary(speed.dist.lm)
 
+# I am a big GGPLOT fan, so sorry base R plotters...
 ggplot(cars, aes(dist, speed))+
   geom_point()+theme_bw(base_size = 12) + ylab("Distance")+xlab("Speed")+
   geom_abline(intercept = lm.results$coefficients[1,1],
@@ -665,18 +672,19 @@ Try adding to our random effects model to include both random slopes and interce
 
 ### More Resources on Bayesian modelling
 There are alot of great resources on the background of bayesian statistics and heiarchical models, including textbooks and examples of code. My background is in ecology, so much of my suggestions might be biased. 
- - Doing Bayesian Data Analysis Book
- - Bayesian Models Book
- - Introduction to Applied Bayesian Statistics and Estimation for Social Scientists
- - Ecological Forecasting
+ - Doing Bayesian Data Analysis: A tutorial with R, JAGS, and STAN, John Kruschke https://sites.google.com/site/doingbayesiandataanalysis/
+ - Bayesian Models:  A Statistical Primer for Ecologists, Hobbs N. T., & Hooten, M. B. (2015). Princeton University Press.
+ - Introduction to Applied Bayesian Statistics and Estimation for Social Scientists, Scott M. Lynch  (2007). Springer-Verlag. https://doi.org/10.1007/978-0-387-71265-9
+ - Ecological Forecasting, Michael Dietze. (2017). https://press.princeton.edu/books/hardcover/9780691160573/ecological-forecasting
+
 
 ### More resources on Bayesian modelling in R
 There are alot of different ways to implement Bayesian models in R, each have their advantages, disadvantages, and vary in how intuitive they may be to a beginnner. Below is a list of differnt programs with links for more information
 
--	JAGS
--	BUGS/WINBUGS
-- STAN
-- NIMBLE
+-	JAGS: http://mcmc-jags.sourceforge.net
+-	BUGS/WINBUGS: https://www.mrc-bsu.cam.ac.uk/software/bugs/
+- STAN: https://mc-stan.org/users/interfaces/rstan
+- NIMBLE: https://r-nimble.org
 
 
 
