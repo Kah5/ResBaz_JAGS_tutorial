@@ -152,7 +152,7 @@ Assume that our prior probability of $\mu$ is represented by a normal distributi
 
 $$P(\mu|X)  \propto  P(X|\mu)*P(\mu) = Normal(X|\mu, \sigma)*Normal(\mu|mu_{0}, \tau)$$
 For those who are visual learners:
-```{r}
+```{r, echo = FALSE}
 
 df.example = data.frame(prior = rnorm(10000, 0, sd = 10), 
                         likelihood = rnorm(10000, 15, sd = 2), 
@@ -356,7 +356,7 @@ acfplot(jags.reg.out)
 jags.mat <- as.matrix(jags.reg.out) 
 
 xpred <- min(cars$dist): max(cars$dist)
-plot(cars$dist, cars$speed)
+#plot(cars$dist, cars$speed)
 cred.lines <- list()
 
 # loop through to get the lines
