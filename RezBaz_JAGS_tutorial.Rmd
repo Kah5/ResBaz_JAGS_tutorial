@@ -55,7 +55,7 @@ Where $P(B|A)$ is the likelihood function, $P(A)$ is the prior or marginal proba
 
 Now I am assuming you know a bit about probability, but lets review a minute. Lets reveiw using this venn diagram. 
 
-# Based on the distribution of points in groups A and BWhat is the:
+# Based on the distribution of points in groups A and B:
 1. P(A) Marginal probability of being in group A = (5/12)
 2. P(B) Marginal probability of being in group B = (9/12)
 3. P(A, B) Joint probability of being in A and B = (2/12)
@@ -127,7 +127,7 @@ You can test out a few different priors (change prior_theta1 in th code below) t
 likelihood.theta1 = 35/36 # probability of detector giving a yes, given the sun has actually exploded
 likelihood.theta2 = 1/36 # probability of a detector giving a yes, when the sun has not exploded
 
-prior_theta1 = 1/1000 # prior belief that the sun has gone nova
+prior_theta1 = 1/10000 # prior belief that the sun has gone nova
 prior_theta2 = 1- prior_theta1
 
 # plug in values for bayes theorem:
@@ -296,7 +296,7 @@ car.data <- list(xvals = cars$dist, y = cars$speed, n = length(cars$speed))
 
 ### Initialize the model
 Initializing the model using jags.model. Note that you can (and probably should generate intial values, but here we let jags do the default).
-This step sets up the JAGS model, loads the data, and specifies all paramets and priors.
+This step sets up the JAGS model, loads the data, and specifies all parameters and priors.
 ```{r}
 jags.model   <- jags.model (file = textConnection(asimple_linear_regression),
                              data = car.data,
