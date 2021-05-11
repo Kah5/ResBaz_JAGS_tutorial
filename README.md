@@ -6,4 +6,7 @@ If you want to run the code yourself, please make sure you have JAGS installed, 
 
 Instructions for installing JAGS are here: http://mcmc-jags.sourceforge.net/
 
+Alternatively, launch a virtual RStudio session here:
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/az-digitalag/Binder_ResBaz_JAGS_tutorial.git/main?urlpath=rstudio)
+
 During the workshop, feel free to follow along and run the code using the R markdown file.
