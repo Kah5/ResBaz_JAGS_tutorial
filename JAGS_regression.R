@@ -56,7 +56,7 @@ gelman.diag(jags.reg.out)
 
 # Check autocorrelation to determine thinning interval
 autocorr(jags.reg.out)
-par(mar = c(1, 1, 1, 1))
+par(mar = c(1.5, 1.5, 1.5, 1.5))
 autocorr.plot(jags.reg.out)
 
 
