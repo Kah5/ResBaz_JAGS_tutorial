@@ -8,26 +8,28 @@ output:
 ---
 
 ## Overview 
-In this workshop, we will cover the very basics of Bayesian Statistics, and go over an example of how to specify your first bayesian linear regression in R using JAGS!
+In this workshop, we will cover the very basics of Bayesian Statistics, and go over an example of how to specify your first Bayesian linear regression in R using JAGS!
 
 ## Prerequisites:
-If you want to follow along with the code you need to:
-
+If you want to follow along with the code you need to either :
+A) 
 - install JAGS itself http://mcmc-jags.sourceforge.net/
 - have R/Rstudio installed
 - have the "rjags", "coda", and "ggplot2" libraries installed 
-- clone or download this repository with this Rmd file here: https://github.com/Kah5/ResBaz_JAGS_tutorial.git
+- clone or download this repository here: https://github.com/Kah5/ResBaz_JAGS_tutorial.git
 
-OR:
-
-Alternatively, launch a virtual RStudio session by clicking on the "launch binder" button in the ReadMe file
+OR
+B) 
+- Click on the `launch binder` button from the [repository](https://github.com/Kah5/ResBaz_JAGS_tutorial)
+- It may take a minute, but the repository contents and the necessary software and packages will appear a virtual RStudio environment
+- Open the .R file to follow along the JAGS model portion of the tutorial
 
 
 
 ## Objectives
-We will cover the very (very) basics of Bayesian Statistics, and go over an example of how to specify your first bayesian linear regression in R! At the end of this tutorial, learners should have a better understanding of bayes theorum, and gain some experience running a bayesian model in R and JAGS. 
+We will cover the very (very) basics of Bayesian statistics and go over an example of how to specify your first Bayesian linear regression in R! At the end of this tutorial, learners should have a better understanding of Bayes theorum, and gain some experience running a Bayesian model in R and JAGS. 
 
-I have also listed further resources and things to watch out for when working in the bayes frame of mind. 
+I have also listed further resources and things to watch out for when working in the Bayes frame of mind. 
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, tidy.opts=list(width.cutoff=80), tidy=TRUE)
@@ -41,30 +43,30 @@ library(ggforce)
 
 ## What are the advantages of Bayesian analysis?
   - All parameters are/can be treated as as random variables, including our data!
-      - rather than assuming our data and covariates are the single *true* estimate, we acknowlege that these values come from a distribution that represents the True (with a capital T) value of the process we are interested in.
+      - rather than assuming our data and covariates are the single *true* estimate, we acknowledge that these values come from a distribution that represents the True (with a capital T) value of the process we are interested in.
   - Allow for estimation of and parsing different sources of uncertainty
       - Bayesian predictive intervals can include different sources of uncertainty: unexplained process error, parameter uncertainty, data uncertainty, and driver uncertainty
       
-  - Bayesian methods can accomodate heiarchical and different process models 
+  - Bayesian methods can accommodate hierarchical and different process models 
       - borrow strength across different groups or treatments
-      - can specify appropriate distributions, and different process models, including state-space models, logistic functions, etc. 
+      - can specify appropriate distributions and different process models, including state-space models, logistic functions, non-linear models, etc. 
 
 
 ## Bayes Theorem
-Bayes theorem is the basis for Bayesian analyses, so we should introduce it. It states that the conditional probability of A, given B is given by the Probabiliity of B given A, multiplied by Probability of A, and normalized by the Probability of B
+Bayes theorem is the basis for Bayesian analyses, so we should introduce it. It states that the conditional probability of A, given B is given by the probability of B given A, multiplied by probability of A, and normalized (divided) by the probability of B.
 
 $$P(A|B) = \frac{P(B|A)*P(A)}{P(B)}$$
 
-Where $P(B|A)$ is the likelihood function, $P(A)$ is the prior or marginal probabilty of A, $P(B)$ is the marginal probabiility of  B
+Where $P(B|A)$ is the likelihood function, $P(A)$ is the prior or marginal probabilty of A, $P(B)$ is the marginal probability of B.
 
-Now I am assuming you know a bit about probability, but lets review a minute. Lets reveiw using this venn diagram. 
+Now, I am assuming you know a bit about probability, but let's review a minute. Lets review using this Venn diagram. 
 
 # Based on the distribution of points in groups A and B:
 1. P(A) Marginal probability of being in group A = (5/12)
 2. P(B) Marginal probability of being in group B = (9/12)
 3. P(A, B) Joint probability of being in A and B = (2/12)
 4. P(A|B) Conditional probability that we are in A, given that we are in B? (2/9)
-5. P(B|A) Conditional probaiblity that we are in B, given that we are in A? (2/5)
+5. P(B|A) Conditional probability that we are in B, given that we are in A? (2/5)
 
 
 ```{r echo = FALSE, fig.width = 4, fig.height = 2, fig.align='center'}
@@ -88,11 +90,11 @@ venn <- ggplot() +
 ```
 ### So what does Bayes theorum mean in the context of a model?
 
-Lets say we have a regression model with parameters denoted by $\theta$ and data denoted by $X$ we can use bayes theorem to determine the conditional probability of our model parameters, given the data $P(\theta|X)$, also called the *posterior*. 
+Let's say we have a regression model with parameters denoted by $\theta$ and data denoted by $X$ we can use Bayes theorem to determine the conditional probability of our model parameters, given the data $P(\theta|X)$, also called the *posterior*. 
 
 $$P(\theta|X) = \frac{P(X|\theta)*P(\theta)}{P(X)}$$
 
-The posterior is equal to the the liklihood $P(X|\theta)$ (you might recognize this from frequentist/maximum liklihood methods) times the prior probability of the model parameters $P(\theta)$ 
+The posterior is equal to the the likelihood $P(X|\theta)$ (you might recognize this from frequentist/maximum likelihood methods) times the prior probability of the model parameters $P(\theta)$ 
 
 Because the marginal probability $P(X)$ is the probability of X, determined by the integral of the joint probability $P(X,\theta)$ over all possible states of $\theta$, we can rewrite this as:
 
@@ -117,12 +119,12 @@ Our data (X) says "Yes, the sun has gone nova". X = Yes, and we have two hypothe
 $$\theta_{1} = nova sun$$
 $$\theta_{2} = no nova$$, 
 
-So lets derive 2 liklihoods:
+So let's derive 2 likelihoods:
 $P(X = yes|\theta_{1} = nova) = 35/36$ -- the probability that a yes from the detector is not a lie.
 
 $P(X = yes|\theta_{1} = not nova) = 1/36$ -- the probability that a yes from the detector is actually a lie
 
-So to estimate the poseterior probabilities of the sun exploding $\theta_{1}$ = nova, given our the neutrino detector telling us "yes" $X = Yes$:
+So to estimate the posterior probabilities of the sun exploding $\theta_{1}$ = nova, given our the neutrino detector telling us "yes" $X = Yes$:
 
 $$P(\theta_{1} = nova|X= YES) = \frac{P(X = YES|\theta_{1} = nova)*P(\theta_{1}= nova)}{P(X = YES|\theta_{1}= nova)*P(\theta_{1}= nova)+ P(X = YES|\theta_{2}= not nova)*P(\theta_{2}= not nova)}$$
 
@@ -136,28 +138,28 @@ likelihood.theta2 = 1/36 # probability of a detector giving a yes, when the sun 
 prior_theta1 = 1/100000 # prior belief that the sun has gone nova
 prior_theta2 = 1- prior_theta1
 
-# plug in values for bayes theorem:
+# plug in values for Bayes theorem:
 posterior = (likelihood.theta1*prior_theta1)/
   ((likelihood.theta1*prior_theta1)+(likelihood.theta2*prior_theta2))
 
-# convert to a percentange & round
+# convert to a percentage & round
 print (paste("Bayesian: There is a ", round(posterior*100, 5), "% chance the sun just went nova!"))
 
 ```
 Note that if we have a stronger prior belief that the sun exploded, then the prior has a stronger influence on the posterior. 
 
-In many (perhaps most) cases, practitioners will keep priors "non-informative," and rely mostly on the data. However, there might be some good reasons to use "informative" or strong priors in some cases. For example, if you have previous research or a posterior from a previous analsis that strongly suggests a high probability of the sun going nova. Or a meta analysis that gives some prior information about what the values of certain model parameters should be. The key here is to not double dip--you can't use your data from the analysis to inform the prior.
+In many (perhaps most) cases, practitioners will keep priors "non-informative," and rely mostly on the data. However, there might be some good reasons to use "informative" or strong priors in some cases. For example, you may have previous research or a posterior from a previous analysis that strongly suggests a high probability of the sun going nova. A meta analysis might provide prior information about what the values of certain model parameters should be. The key here is to not double dip--you can't use your data from the analysis to inform the prior.
 
 ### Using Bayes theorem to estimate model parameters:
-Lets say we have a normal Gaussian liklihood with a mean = $\mu$ SD = $\sigma$, and that we observed a value of X = 15. We could use bayes theorem to determine the posetior probability of our parameter of interest $\mu$, given our data X = 15: 
+Lets say we have a normal Gaussian likelihood with a mean = $\mu$ SD = $\sigma$, and that we observed a value of X = 15. We could use Bayes theorem to determine the posterior probability of our parameter of interest $\mu$, given our data X = 15: 
 
-The posterior probability of $\mu$ given the data X = 15 is porportional to the likelihood (probability of the data, given the model) multipled by the prior probability of mu. We drop the normalizing constant, so the formula is not proporational to. 
+The posterior probability of $\mu$ given the data X = 15 is proportional to the likelihood (probability of the data, given the model) multiplied by the prior probability of $\mu$.  We drop the normalizing constant, so the formula is 'proportional to' rather than 'equal to'. 
 
-Assume that our prior probability of $\mu$ is represented by a normal distribution with a mean of $\mu_{0}$ and variance $\tau$. Subistituting these distributions gives us the posterior. If you were to analytically solve this (substituting the analytical form of the normal distribution), you would see that that this results in a normal distribution for our posterior, with a posterior mean = a weighted average of the data (X), and the prior mean ($\mu_{0}$), and a posterior precision ($1/\sigma^2$) is the sum of the prior precision and the data precision. 
+Assume that our prior probability of $\mu$ is represented by a normal distribution with a mean of $\mu_{0}$ and variance $\tau$. Substituting these distributions gives us the posterior. If you were to analytically solve this (substituting the analytical form of the normal distribution), you would see that that this results in a normal distribution for our posterior, with a posterior mean = a weighted average of the data (X), and the prior mean ($\mu_{0}$), and a posterior precision ($1/\sigma^2$) is the sum of the prior precision and the data precision. 
 
 
 $$P(\mu|X)  \propto  P(X|\mu)*P(\mu) = Normal(X|\mu, \sigma)*Normal(\mu|mu_{0}, \tau)$$
-For those who are visual learners, the below code simulates the prior distribution (red), the liklihood (green), and the posterior (blue). 
+For those who are visual learners, the below code simulates the prior distribution (red), the likelihood (green), and the posterior (blue). 
 ```{r, echo = FALSE}
 
 df.example = data.frame(prior = rnorm(10000, 0, sd = 10), 
@@ -175,21 +177,21 @@ Question to think about:
 
 
 ### Monte Carlo Methods:
-In the two examples with bayes theorem above, we used examples where you could theoretically express the posterior using a commonly used distribution (normal). However, in more complex models, this is not always (not often) the case. However, we can rely on Monte Carlo Methods to approximate...
+In the two examples with Bayes theorem above, we used examples where you could theoretically express the posterior using a commonly used distribution (normal). However, in more complex models, this is not always (not often) the case. However, we can rely on Monte Carlo Methods to approximate...
 
-Numerical methods allow for approximation of any probability distriubtion using random samples from that distribution, even if you can't write out the analytical form of that distribution. We won't get too much into the weeds about this here, as I want to focus on implemetation in R. 
+Numerical methods allow for approximation of any probability distribution using random samples from that distribution, even if you can't write out the analytical form of that distribution. We won't get too much into the weeds about this here, as I want to focus on implementation in R. 
 
-Just know that here we will use Markov Chain Monte Carlo (mcmc) methods to randomly sample our posterior parameter distributions. JAGS is one program that uses MCMC methods, but there are several, including:
+Just know that here we will use Markov chain Monte Carlo (MCMC) methods to randomly sample our posterior parameter distributions. JAGS is one program that uses MCMC methods, but there are several, including:
 
   -	JAGS/rjags: https://cran.r-project.org/web/packages/rjags/index.html
-  -	BUGS/WINBUGS
+  -	BUGS/WINBUGS: https://www.openbugs.net/w/FrontPage
   -	STAN: https://mc-stan.org/users/interfaces/rstan
   -	NIMBLE: https://r-nimble.org/
 
-### A simple Linear regression example
+### A simple linear regression example
 We will start off thinking about a simple linear regression approach, where we are estimating the slope and intercept of the relationship between two variables in a sample relationship. You might use `lm()` to fit this model using maximum likelihood, frequentist approach. We will use the cars dataset loaded into R.
 
-Frequetist approaches often based on maximum likelhood methods, that is maximizing the probability of the data given the specified model parameters.
+Frequentist approaches are often based on maximum likelihood methods, that is maximizing the probability of the data given the specified model parameters.
 
 
 ```{r, collapse=TRUE }
@@ -211,12 +213,12 @@ ggplot(cars, aes(dist, speed))+
 
 ### A simple linear regression in JAGS
 
-I mentioned that in Bayesian models, all variables are treated as random, that means that all variables are/can be estimated within the model. In our linear regression, this includes our dependant variable, y, and could include our independant variable x. 
+I mentioned that in Bayesian models, all variables are treated as random, that means that all variables are/can be estimated within the model. In our linear regression, this includes our dependent variable, y, and could include our independent variable x. 
 
 Why might this be useful?
   - Well y is a measurement taken by me, an imperfect human being. 
   - We typically can't directly measure the "TRUE" process or value that we are interested in.
-  - We might be estimating a single process/value from two different daata sources.
+  - We might be estimating a single process/value from two different data sources.
 
 
 ##### The Linear Regression Model
@@ -225,15 +227,15 @@ Why might this be useful?
 $$y_{i}~\sim normal(\mu, \sigma^2)$$
 
 #### Process Model 
-We specify the linear regression with slope $\beta$, intercept $\alpha$ and our independent variable $x$
+We specify the linear regression with slope $\beta$, intercept $\alpha$ and our independent variable $x$. 
 
 $$\mu = \beta*x + \alpha$$
 
-While we are specifying a very simple model, the process model could be any model that you can write out (logistic growth, muliple linear regression, state-space model etc)
+While we are specifying a very simple model, the process model could be any model that you can write out (logistic growth, multiple linear regression, state-space model, etc). 
 
 
 ### Priors:
-In Bayes models you specify distributions that you want to sample the parameters from. We wont go into detail on how to select priors in this short workshop, but keep in mind that prior selection is quite important. The benefit of Bayesian modelling is that you can choose "uninformative priors" or "informative priors". You typically want to specify 'conjugate priors,' which means that when the prior and the liklihood are combined, they generate a posterior distribution that has a named & defined distribution, such as a normal distribution, Poisson, etc. Typical examples of conjugacy include a normal distribution and either normal or inverse gamma priors. We won't be too concerned about this for this tutorial, but keep this in mind when you are building your own models.
+In Bayesian models, you must specify distributions that you want to sample the parameters from. We won't go into detail on how to select priors in this short workshop, but keep in mind that prior selection is quite important. The benefit of Bayesian modeling is that you can choose "uninformative priors" or "informative priors". You typically want to specify 'conjugate priors,' which means that when the prior and the likelihood are combined, they generate a posterior distribution that has a named & defined distribution, such as a normal distribution, Poisson, etc. One common example of conjugacy: for a normal likelihood, normal priors for the mean and gamma priors for the precision. We won't be too concerned about this for this tutorial, but keep this in mind when you are building your own models.
 
 #### Uninformative priors:
 
@@ -245,24 +247,24 @@ Specify that we have *some* prior knowledge of what value the parameter should b
 
 Why might this be useful?
 
-Well, alot of science does not exist in a vacuum, and we likely already have some prior knowledge of what we expect. For example, this might be useful if we have already done a study where we quantified the relationship between y and x, and we know that the value of beta should fall within a given range. In the XKCD comic sun example we specified an informative prior based on the fact that the sun exploding is fairly unlikely. 
+Well, science does not exist in a vacuum, and we likely already have some prior knowledge of what we expect. For example, this might be useful if we have already done a study where we quantified the relationship between y and x, and we know that the value of beta should fall within a given range. In the XKCD comic sun example we specified an informative prior based on the fact that the sun exploding is fairly unlikely. 
 
-This may not be appear to be super useful in a basic linear regression, it can also be useful in much more complex models, where multiple parameters could trade off. 
+This may not be appear to be super useful in a basic linear regression, it can also be useful in much more complex models, where multiple parameters could trade off. Informative priors can improve model convergence by constraining one or more parameters. 
 
-In this model we will specify uninformative priors for our prarameters, which assume that the true value of beta is sampled from a normal distribution with mean of 0 and variance of 1000. We also specify a prior for $\sigma^2$
+In this model, we will specify uninformative priors for our parameters, assuming that the true value of beta is sampled from a normal distribution with mean of 0 and variance of 1000. We also specify a prior for $\sigma^2$. 
 
 $$\beta \sim normal(0, 0.001)$$
 $$\alpha \sim normal(0, 0.001)$$
 $$\sigma^2 \sim invgamma(0.01, 0.01)$$
 
-Note that variances must be non-negative, hence we cannot use a normal prior as a distribution
+Note that variances must be non-negative, hence we cannot use a normal prior as a distribution. The domain of the inverse gamma distribution is positive. 
 
 ## JAGS (Just Another Gibbs Sampler)
-We will use JAGS ('Just Another Gibbs Sampler') to run this particular bayesian model. JAGS is designed to run Bayesian models using Markoc Chain Monte Carlo simulations (MCMC). JAGS is just one option among many for bayesian analysis. We can call and run jags from R utilizing the 'rjags' library. Note that there are other R libraries that can help with this including 'R2jags'. 
+We will use JAGS ('Just Another Gibbs Sampler') to run this particular Bayesian model. JAGS is designed to run Bayesian models using Markov chain Monte Carlo simulations (MCMC). JAGS is just one option among many for Bayesian analysis. We can call and run jags from R utilizing the 'rjags' package. Note that there are other R packages that can do this, including 'R2jags'. 
 
 
 ## Defining our JAGS model
-To specify a JAGS model, you must define all the random distributions
+To specify a JAGS model, you must define all the random distributions. 
 
 ```{r}
 asimple_linear_regression <- "model{
@@ -299,7 +301,7 @@ car.data <- list(xvals = cars$dist, y = cars$speed, n = length(cars$speed))
 ```
 
 ### Initialize the model
-Initializing the model using jags.model. Note that you can (and probably should generate intial values, but here we let jags do the default).
+Initializing the model using jags.model. Note that you can (and probably should generate initial values, but here we let jags do the default).
 This step sets up the JAGS model, loads the data, and specifies all parameters and priors.
 ```{r}
 jags.model   <- jags.model (file = textConnection(asimple_linear_regression),
@@ -309,9 +311,9 @@ jags.model   <- jags.model (file = textConnection(asimple_linear_regression),
 ```
 
 ### Running MCMC chains 
-JAGS can run mulitple MCMC chains, ideally with random starting values. This is a good idea beacuse it ensures that our model "converges" on the same parameter space consistently. Many times people run at least 3 chains.
+JAGS can run multiple MCMC chains, ideally with random starting values. This is a good idea because it ensures that our model "converges" on the same parameter space consistently. Many times people run at least 3 chains.
 
-The funciton "coda.samples" runs the MCMC chains of our model for a specified number of MCMC iteraations (specified by 'n.iter'), and is set up to 'trace' or output all parameters/variables of interest specified by variable.names. Often models are run for a high number of iterations, so 5000 MCMC samples is quite small, but we will use it for this tutorial. 
+The function `coda.samples` runs the MCMC chains of our model for a specified number of MCMC iterations (specified by 'n.iter'), and is set up to 'trace' or output all parameters/variables of interest specified by variable.names. Often models are run for a high number of iterations, so 5000 MCMC samples is quite small, but we will use it for this tutorial. 
 
 ```{r}
 jags.reg.out   <- coda.samples (model = jags.model,
@@ -393,8 +395,6 @@ ycred <- matrix(NA, nrow=nsamp, ncol=npred)
 Next we'll set up a loop where we'll calculate the expected value of y at each x for each pair of regression parameters and then add additional random error from the data model to produce the posterior predictive distribution. 
 
 ```{r}
-
-
 for(i in 1:1000){
   params <-  jags.mat[mcmcsamples[i],]
   ycred[i,] <- params["alpha"] + params["beta"]*xpred # same as above
@@ -402,7 +402,7 @@ for(i in 1:1000){
 }
 
 
-#combine the  ci, pi, and xpreds into a dataframe ot plot in ggplot2
+#combine the  ci, pi, and xpreds into a dataframe to plot in ggplot2
 
 ci.and.pi <- data.frame(xvals = xpred, 
                        ci.med = apply(ycred, 2, quantile, 0.5),
@@ -433,45 +433,22 @@ ggplot()+geom_point(data = cars, aes(dist, speed))+theme_bw(base_size = 12) +
 
 
 
-## Sources of Uncertainty that bayesian modelling can include:
+## Sources of uncertainty that Bayesian modelling can include:
 
   1. parameter uncertainty (credible intervals, the 95% CI around $\beta$ and $\alpha$)
   2. process uncertainty (sigma)
-  3. driver/data uncertainty (What if we had multiple measurements of our dependant variable?)
-  4. Random effects uncertainty/parameter variability
-
-#### Random effects
-### Lets simulate some observations from the cars dataset, so we can test out random effects in a JAGS model.
-
-```{r}
-
-#Jags expects all data to in a list.
-speeds1 <- speeds2 <- speeds3 <- matrix(NA, nrow = length(cars$speed), ncol = 1)
-for(i in 1:length(cars$speed)){
-speeds1 [i]<- rnorm(1, cars[i,]$speed, sd = 1)
-speeds2 [i]<- rnorm(1, cars[i,]$speed, sd = 1)
-speeds3 [i]<- rnorm(1, cars[i,]$speed, sd = 1)
-}
-cars.mult.measure <- data.frame(dist = rep(cars$dist, 3), 
-                                speed = c(speeds1, speeds2, speeds3 ), 
-                                observer = rep(1:3, each = length(cars$speed)))
-
-
-car.obs.data <- list(xvals = cars.mult.measure$dist, 
-                     y = cars.mult.measure$speed, 
-                     obs = cars.mult.measure$observer, n = length(cars.mult.measure$speed))
-```
-
+  3. driver/data uncertainty (What if we had multiple measurements of our dependent variable?)
+  4. random effects uncertainty/parameter variability
 
 
 ### Including Data Uncertainty or "Uncertainty in variables" 
 
-Lets say that our variable "Speed" was measured by taking 3 different radar measurements, each slighly different. How do we know what the "true" speed is?
+Lets say that our variable "Speed" was measured by taking 3 different radar measurements, each slightly different. How do we know what the "true" speed is?
 
 Open question for the group: How could you typically deal with this?
 
 
-What if we could include this uncertainty in our model, in a way that propogates forward to the estimates of distance?
+What if we could include this uncertainty in our model, in a way that propagates forward to the estimates of distance?
 
 We can (in a few different ways)!
 
@@ -520,8 +497,6 @@ car.data <- list(xvals = cars$dist, y = cars$speed, n = length(cars$speed))
 ```
 
 ```{r}
-par(mfrow = c(2,4))
-traceplot(jags.reg.out)
 jags.model.drive   <- jags.model (file = textConnection(a_linear_regression_driver_unc ),
                              data = car.data,
                              #inits = inits,
@@ -532,14 +507,12 @@ jags.drive.unc.out   <- coda.samples (model = jags.model.drive,
 
 summary(jags.drive.unc.out)
 traceplot(jags.drive.unc.out)
-
-
 ```
-Adding an informative prior is one way to include the data or driver uncertainty in the model. Another might be to explicitly include mulitple measurements/observers in your model.
+Adding an informative prior is one way to include the data or driver uncertainty in the model. Another might be to explicitly include multiple measurements/observers in your model.
 
 
 ### Adding Random effects to our JAGS model:
-Now, one can imagine that different drivers might drive different distances at a given speed, leading to varying intercepts (and possibly varying slopes) for each driver. We will simulate different intercepts for multiple drivers, to demonstrate how you can add random effects within the JAGS bayesian framework.
+Now, one can imagine that different drivers might drive different distances at a given speed, leading to varying intercepts (and possibly varying slopes) for each driver. We will simulate different intercepts for multiple drivers, to demonstrate how you can add random effects within the JAGS Bayesian framework.
 
 ```{r}
 # driver 1
@@ -671,12 +644,11 @@ ggplot(cars.driver, aes(dist, speed, color = driver))+geom_point()+theme_bw(base
 
 ## So why Bayes?
 
-The real benefit to going bayes comes (in my opinion) as you start adding complexity to your model structure, particularly if your dataset of interest has heiarchical structure. This allows you parse some of that additive process error into parameter error, random effects, and fixed effects. 
+The real benefit to going Bayesian comes (in my opinion) as you start adding complexity to your model structure, particularly if your dataset of interest has hierarchical structure. This allows you partition some of that additive process error into parameter error, random effects, and fixed effects. 
 
-We could keep heiarchically adding complexity, if that is what our system/problem needed. In our example, perhaps Distance vs Speed relationship varied by driver, but also by the car model. Depending on the data stucture, we might add an additional random effect for the car. But, if all drivers tested out all the cars we could have a nested random effect, where $\mu_{alpha}$ was drawn from a distribution of with mean $\mu_{car}$ and precision $\tau_{car}$. However, this heiarchical structure should be based in a knowledge of your system and your data. That is why it is best practice to start with a simple model, then build up heiarachical structures, if needed. 
+We could keep hierarchically adding complexity, if that is what our system/problem needed. In our example, perhaps Distance vs Speed relationship varied by driver, but also by the car model. Depending on the data structure, we might add an additional random effect for the car. But, if all drivers tested out all the cars we could have a nested random effect, where $\mu_{alpha}$ was drawn from a distribution of with mean $\mu_{car}$ and precision $\tau_{car}$. However, this hierarchical structure should be based in a knowledge of your system and your data. That is why it is best practice to start with a simple model, then build up hierarchical structures, if needed. 
 
-Bayesian approaches can also be quite useful when it comes to partitioning uncertainty, and making forecasts with uncertainty. For example, in our above model, we have estimates of how much uncertainty is due to parameters (beta, alpha), random effects, process error (sigma), data uncertainty (tau_speed). Bayesian methods allow lend themselves to assessing theese uncertaintys and propagate these uncertainties into predictions/forecasts. 
-
+Bayesian approaches can also be quite useful when it comes to partitioning uncertainty, and making forecasts with uncertainty. For example, in our above model, we have estimates of how much uncertainty is due to parameters (beta, alpha), random effects, process error (sigma), data uncertainty (tau_speed). Bayesian methods allow lend themselves to evaluating these uncertainties and propagating uncertainties into predictions/forecasts. 
 
 
 ## On your own:
@@ -685,7 +657,7 @@ Try adding to our random effects model to include both random slopes and interce
 
 
 ### More Resources on Bayesian modelling
-There are alot of great resources on the background of bayesian statistics and heiarchical models, including textbooks and examples of code. My background is in ecology, so much of my suggestions might be biased. 
+There are many great resources on the background of Bayesian statistics and hierarchical models, including textbooks and examples of code. My background is in ecology, so much of my suggestions might be biased. 
 
  - Doing Bayesian Data Analysis: A tutorial with R, JAGS, and STAN, John Kruschke https://sites.google.com/site/doingbayesiandataanalysis/
  - Bayesian Models:  A Statistical Primer for Ecologists, Hobbs N. T., & Hooten, M. B. (2015). Princeton University Press.
@@ -694,12 +666,10 @@ There are alot of great resources on the background of bayesian statistics and h
 
 
 ### More resources on Bayesian modelling in R
-There are alot of different ways to implement Bayesian models in R, each have their advantages, disadvantages, and vary in how intuitive they may be to a beginnner. Below is a list of differnt programs with links for more information
+There are also different ways to implement Bayesian models in R, each have their advantages, disadvantages, and vary in how intuitive they may be to a beginner. Below is a list of different programs with links for more information:
 
 -	JAGS: http://mcmc-jags.sourceforge.net
 -	BUGS/WINBUGS: https://www.mrc-bsu.cam.ac.uk/software/bugs/
 - STAN: https://mc-stan.org/users/interfaces/rstan
 - NIMBLE: https://r-nimble.org
-
-
 
