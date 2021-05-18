@@ -1,7 +1,7 @@
 ---
 title: "Introduction to Bayesian Statistics in R"
 author: "Kelly Heilman"
-date: "5/12/2020"
+date: "5/18/2021"
 output:
   pdf_document: default
   html_document: default
